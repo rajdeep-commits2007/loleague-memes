@@ -62,6 +62,6 @@ public class PresenceTracker {
     }
 
     private void publish(String collegeId) {
-        broker.convertAndSend("/topic/college." + collegeId + ".presence", Map.of("online", count(collegeId)));
+        broker.convertAndSend("/topic/college." + collegeId + ".presence", (Object) Map.of("online", count(collegeId)));
     }
 }
