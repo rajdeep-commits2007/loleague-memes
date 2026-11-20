@@ -73,41 +73,41 @@ public class UserService {
     }
 
     /**
-     * Throws if this verified phone already belongs to an account other than the given Clerk user,
-     * so a second Clerk login (e.g. GitHub after Google) can never create a second account for one phone.
+     * Throws if this verified email already belongs to an account other than the given Clerk user,
+     * so a second Clerk login (e.g. GitHub after Google) can never create a second account for one email.
      */
     @Transactional(readOnly = true)
-    public void assertPhoneFree(String phone, String clerkUserId) {
-        users.findByPhone(phone)
+    public void assertEmailFree(String email, String clerkUserId) {
+        users.findByEmailIgnoreCase(email)
                 .filter(u -> !clerkUserId.equals(u.getClerkUserId()))
                 .ifPresent(u -> {
-                    throw ApiException.conflict("This phone number is already linked to another LOLeague account. "
+                    throw ApiException.conflict("This email is already linked to another LOLeague account. "
                             + "Sign in the way you did the first time.");
                 });
     }
 
-    /** Creates a brand-new account for a Clerk user with a verified phone. */
+    /** Creates a brand-new account for a Clerk user with a verified email. */
     @Transactional
     public User register(ClerkIdentity clerk, String collegeId, String rawUsername) {
-        requirePhone(clerk);
+        requireEmail(clerk);
         if (users.findByClerkUserId(clerk.clerkUserId()).isPresent()) {
             throw ApiException.conflict("You already have an account. Just sign in.");
         }
-        assertPhoneFree(clerk.phone(), clerk.clerkUserId());
+        assertEmailFree(clerk.email(), clerk.clerkUserId());
         colleges.find(collegeId).orElseThrow(() -> ApiException.badRequest("Unknown college"));
         UsernameAvailability availability = checkUsername(rawUsername);
         if (!availability.available()) {
             throw ApiException.conflict(availability.reason());
         }
-        User user = new User(availability.username(), collegeId, clerk.clerkUserId(), clerk.phone());
+        User user = new User(availability.username(), collegeId, clerk.clerkUserId(), clerk.email());
         if (props.admins().contains(user.getUsername())) {
             user.setRole("ADMIN");
         }
         try {
             users.saveAndFlush(user);
         } catch (DataIntegrityViolationException e) {
-            // Two tabs racing, or the phone / username got taken between the checks and the insert.
-            throw ApiException.conflict("That username or phone number was just taken. Try again.");
+            // Two tabs racing, or the email / username got taken between the checks and the insert.
+            throw ApiException.conflict("That username or email was just taken. Try again.");
         }
         authorSync.push(user);
         return user;
@@ -116,11 +116,11 @@ public class UserService {
     /** Links a pre-Clerk (username + password) account to this Clerk user, once. */
     @Transactional
     public User claimLegacy(ClerkIdentity clerk, String rawUsername, String password) {
-        requirePhone(clerk);
+        requireEmail(clerk);
         if (users.findByClerkUserId(clerk.clerkUserId()).isPresent()) {
             throw ApiException.conflict("You already have an account. Just sign in.");
         }
-        assertPhoneFree(clerk.phone(), clerk.clerkUserId());
+        assertEmailFree(clerk.email(), clerk.clerkUserId());
         User user = users.findByUsernameIgnoreCase(normalize(rawUsername)).orElse(null);
         boolean claimable = user != null && user.getPasswordHash() != null && user.getClerkUserId() == null;
         String hash = claimable ? user.getPasswordHash() : dummyHash;
@@ -129,11 +129,11 @@ public class UserService {
             throw new ApiException(HttpStatus.UNAUTHORIZED,
                     "Wrong username or password, or that account was already claimed");
         }
-        user.linkClerk(clerk.clerkUserId(), clerk.phone());
+        user.linkClerk(clerk.clerkUserId(), clerk.email());
         try {
             return users.saveAndFlush(user);
         } catch (DataIntegrityViolationException e) {
-            throw ApiException.conflict("This phone number is already linked to another LOLeague account.");
+            throw ApiException.conflict("This email is already linked to another LOLeague account.");
         }
     }
 
@@ -175,9 +175,9 @@ public class UserService {
         return syncRole(user);
     }
 
-    private static void requirePhone(ClerkIdentity clerk) {
-        if (clerk.phone() == null) {
-            throw ApiException.badRequest("Verify your phone number first");
+    private static void requireEmail(ClerkIdentity clerk) {
+        if (clerk.email() == null) {
+            throw ApiException.badRequest("Verify your email address first");
         }
     }
 
@@ -232,7 +232,7 @@ public class UserService {
 
     public UserResponse toResponse(User u) {
         return new UserResponse(u.getId(), u.getUsername(), u.getCollegeId(), collegeName(u.getCollegeId()),
-                u.getDisplayName(), u.getBio(), u.getAvatarUrl(), u.getBirthday(), u.getRole(), u.getPhone(),
+                u.getDisplayName(), u.getBio(), u.getAvatarUrl(), u.getBirthday(), u.getRole(), u.getEmail(),
                 u.getUsernameChangedAt(), u.getCreatedAt());
     }
 

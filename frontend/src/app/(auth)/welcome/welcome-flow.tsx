@@ -3,7 +3,7 @@
 import { useAuth, useClerk, useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, KeyRound, Loader2, Phone, Rocket, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, KeyRound, Loader2, Mail, Rocket, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { safeNext } from "@/components/auth/clerk-auth-card";
@@ -20,14 +20,14 @@ import { CollegePicker } from "../register/college-picker";
 
 type Step =
   | { kind: "loading" }
-  | { kind: "phone" }
-  | { kind: "onboard"; phone: string; suggestedName: string | null }
+  | { kind: "email" }
+  | { kind: "onboard"; email: string; suggestedName: string | null }
   | { kind: "blocked"; message: string };
 
 /**
  * Runs right after Clerk sign-in / sign-up:
  *   1. swap the Clerk session for LOLeague cookies (existing account -> straight to the feed),
- *   2. if Clerk has no verified phone yet (Google / GitHub sign-up), add one with an OTP,
+ *   2. if Clerk has no verified email yet, add one and verify it with an emailed OTP,
  *   3. otherwise pick a college + username, or claim a pre-Clerk account with its old password.
  */
 export function WelcomeFlow() {
@@ -46,10 +46,10 @@ export function WelcomeFlow() {
         toast.success(`Welcome, ${result.user.displayName}!`);
         router.replace(next);
         router.refresh();
-      } else if (result.status === "PHONE_REQUIRED") {
-        setStep({ kind: "phone" });
+      } else if (result.status === "EMAIL_REQUIRED") {
+        setStep({ kind: "email" });
       } else {
-        setStep({ kind: "onboard", phone: result.phone, suggestedName: result.suggestedName });
+        setStep({ kind: "onboard", email: result.email, suggestedName: result.suggestedName });
       }
     },
     [next, router]
@@ -109,13 +109,13 @@ export function WelcomeFlow() {
     );
   }
 
-  if (step.kind === "phone") {
-    return <PhoneStep onVerified={run} onCancel={switchAccount} />;
+  if (step.kind === "email") {
+    return <EmailStep onVerified={run} onCancel={switchAccount} />;
   }
 
   return (
     <OnboardStep
-      phone={step.phone}
+      email={step.email}
       suggestedName={step.suggestedName}
       getToken={() => getToken({ skipCache: true })}
       onDone={finish}
@@ -123,12 +123,12 @@ export function WelcomeFlow() {
   );
 }
 
-/** Adds a phone number to the Clerk user and verifies it with an SMS code. */
-function PhoneStep({ onVerified, onCancel }: { onVerified: () => void; onCancel: () => void }) {
+/** Adds an email address to the Clerk user and verifies it with an emailed code. */
+function EmailStep({ onVerified, onCancel }: { onVerified: () => void; onCancel: () => void }) {
   const { user } = useUser();
-  const [phone, setPhone] = useState("+91");
+  const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
-  const [pending, setPending] = useState<Awaited<ReturnType<NonNullable<typeof user>["createPhoneNumber"]>> | null>(
+  const [pending, setPending] = useState<Awaited<ReturnType<NonNullable<typeof user>["createEmailAddress"]>> | null>(
     null
   );
   const [busy, setBusy] = useState(false);
@@ -136,16 +136,16 @@ function PhoneStep({ onVerified, onCancel }: { onVerified: () => void; onCancel:
   async function sendCode(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
-    const number = phone.replace(/[\s-]/g, "");
-    if (!/^\+\d{10,15}$/.test(number)) {
-      toast.error("Enter your number with the country code, like +919876543210");
+    const address = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
+      toast.error("Enter a valid email address");
       return;
     }
     setBusy(true);
     try {
-      const existing = user.phoneNumbers.find((p) => p.phoneNumber === number);
-      const resource = existing ?? (await user.createPhoneNumber({ phoneNumber: number }));
-      await resource.prepareVerification();
+      const existing = user.emailAddresses.find((a) => a.emailAddress.toLowerCase() === address);
+      const resource = existing ?? (await user.createEmailAddress({ email: address }));
+      await resource.prepareVerification({ strategy: "email_code" });
       setPending(resource);
       toast.success("OTP sent!");
     } catch (err) {
@@ -162,7 +162,7 @@ function PhoneStep({ onVerified, onCancel }: { onVerified: () => void; onCancel:
     try {
       const verified = await pending.attemptVerification({ code: code.trim() });
       if (verified.verification.status !== "verified") throw new Error("That code didn't work");
-      await user.update({ primaryPhoneNumberId: verified.id });
+      await user.update({ primaryEmailAddressId: verified.id });
       onVerified();
     } catch (err) {
       toast.error(clerkError(err));
@@ -175,24 +175,26 @@ function PhoneStep({ onVerified, onCancel }: { onVerified: () => void; onCancel:
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-2xl font-extrabold">
-          <Phone className="size-6 text-bubblegum" /> Verify your phone
+          <Mail className="size-6 text-bubblegum" /> Verify your email
         </CardTitle>
         <CardDescription>
-          Every LOLeague account is tied to one phone number. We&apos;ll text you a one-time code.
+          Every LOLeague account is tied to one email address. We&apos;ll email you a one-time code.
         </CardDescription>
       </CardHeader>
       <CardContent>
         {!pending ? (
           <form onSubmit={sendCode} className="grid gap-3">
-            <Label htmlFor="phone">Phone number</Label>
+            <Label htmlFor="email">Email address</Label>
             <Input
-              id="phone"
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+919876543210"
+              id="email"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              spellCheck={false}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
             />
             <Button type="submit" size="lg" disabled={busy}>
               {busy ? <Loader2 className="animate-spin" /> : null} Send OTP
@@ -203,7 +205,7 @@ function PhoneStep({ onVerified, onCancel }: { onVerified: () => void; onCancel:
           </form>
         ) : (
           <form onSubmit={verify} className="grid gap-3">
-            <Label htmlFor="code">Code sent to {pending.phoneNumber}</Label>
+            <Label htmlFor="code">Code sent to {pending.emailAddress}</Label>
             <Input
               id="code"
               inputMode="numeric"
@@ -218,7 +220,7 @@ function PhoneStep({ onVerified, onCancel }: { onVerified: () => void; onCancel:
               {busy ? <Loader2 className="animate-spin" /> : <CheckCircle2 />} Verify
             </Button>
             <Button type="button" variant="ghost" onClick={() => setPending(null)} disabled={busy}>
-              Change number
+              Change email
             </Button>
           </form>
         )}
@@ -228,12 +230,12 @@ function PhoneStep({ onVerified, onCancel }: { onVerified: () => void; onCancel:
 }
 
 function OnboardStep({
-  phone,
+  email,
   suggestedName,
   getToken,
   onDone,
 }: {
-  phone: string;
+  email: string;
   suggestedName: string | null;
   getToken: () => Promise<string | null>;
   onDone: (r: SessionResult) => void;
@@ -243,7 +245,7 @@ function OnboardStep({
       <CardHeader>
         <CardTitle className="text-3xl font-extrabold">Almost in!</CardTitle>
         <CardDescription>
-          Phone verified: <b>{phone}</b>
+          Email verified: <b>{email}</b>
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -347,7 +349,7 @@ function NewAccountForm({
   );
 }
 
-/** For students who signed up before Clerk: link the old account (memes, coins) to this phone, once. */
+/** For students who signed up before Clerk: link the old account (memes, coins) to this email, once. */
 function ClaimForm({
   getToken,
   onDone,
@@ -375,7 +377,7 @@ function ClaimForm({
     <form onSubmit={submit} className="mt-4 grid gap-4" noValidate>
       <p className="text-sm text-muted-foreground">
         Enter your old LOLeague username and password once. Your memes, coins and college move over, and from now on
-        you&apos;ll sign in with this phone / Google / GitHub instead.
+        you&apos;ll sign in with this email / Google / GitHub instead.
       </p>
       <div className="grid gap-2">
         <Label htmlFor="old-username">Old username</Label>

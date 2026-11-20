@@ -21,7 +21,7 @@ public record AuthProperties(Jwt jwt, Cookies cookies, Internal internal, Clerk 
 
     /**
      * @param issuer            your Clerk Frontend API URL, e.g. https://clerk.loleague.in or https://xyz.clerk.accounts.dev
-     * @param secretKey         sk_live_... / sk_test_... (Backend API, used to read the verified phone number)
+     * @param secretKey         sk_live_... / sk_test_... (Backend API, used to read the verified email address)
      * @param authorizedParties comma separated origins allowed in the token's azp claim (your web app URLs)
      */
     public record Clerk(String issuer, String secretKey, String authorizedParties, String apiUrl) {

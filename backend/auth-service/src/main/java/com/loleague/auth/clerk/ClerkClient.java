@@ -20,6 +20,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 
@@ -27,8 +28,8 @@ import java.util.Set;
  * Talks to Clerk. Two jobs:
  * <ol>
  *   <li>verify a Clerk session token (RS256, Clerk's JWKS, issuer + azp checked), and</li>
- *   <li>read the Clerk user from the Backend API, because the session token does not carry the phone number
- *       and we only trust a phone Clerk itself marked as verified (OTP done).</li>
+ *   <li>read the Clerk user from the Backend API, because the session token does not carry the email address
+ *       and we only trust an email address Clerk itself marked as verified (email OTP or Google / GitHub).</li>
  * </ol>
  */
 @Component
@@ -36,14 +37,14 @@ public class ClerkClient {
 
     private static final Logger log = LoggerFactory.getLogger(ClerkClient.class);
 
-    /** What we need from a Clerk user. {@code phone} is a verified E.164 number or null. */
-    public record ClerkIdentity(String clerkUserId, String phone, String firstName, String lastName, String imageUrl) {
+    /** What we need from a Clerk user. {@code email} is a verified, lower-cased address or null. */
+    public record ClerkIdentity(String clerkUserId, String email, String firstName, String lastName, String imageUrl) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     record ClerkUser(String id,
-                     @JsonProperty("primary_phone_number_id") String primaryPhoneNumberId,
-                     @JsonProperty("phone_numbers") List<PhoneNumber> phoneNumbers,
+                     @JsonProperty("primary_email_address_id") String primaryEmailAddressId,
+                     @JsonProperty("email_addresses") List<EmailAddress> emailAddresses,
                      @JsonProperty("first_name") String firstName,
                      @JsonProperty("last_name") String lastName,
                      @JsonProperty("image_url") String imageUrl,
@@ -52,7 +53,7 @@ public class ClerkClient {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record PhoneNumber(String id, @JsonProperty("phone_number") String phoneNumber, Verification verification) {
+    record EmailAddress(String id, @JsonProperty("email_address") String emailAddress, Verification verification) {
         boolean verified() {
             return verification != null && "verified".equals(verification.status());
         }
@@ -119,18 +120,19 @@ public class ClerkClient {
         if (Boolean.TRUE.equals(user.banned()) || Boolean.TRUE.equals(user.locked())) {
             throw ApiException.forbidden("This account is blocked");
         }
-        return new ClerkIdentity(user.id(), verifiedPhone(user), user.firstName(), user.lastName(), user.imageUrl());
+        return new ClerkIdentity(user.id(), verifiedEmail(user), user.firstName(), user.lastName(), user.imageUrl());
     }
 
-    /** The primary phone if verified, otherwise any verified phone. */
-    private static String verifiedPhone(ClerkUser user) {
-        List<PhoneNumber> phones = user.phoneNumbers() == null ? List.of() : user.phoneNumbers();
-        return phones.stream()
-                .filter(PhoneNumber::verified)
-                .filter(p -> Objects.equals(p.id(), user.primaryPhoneNumberId()))
-                .map(PhoneNumber::phoneNumber)
+    /** The primary email if verified, otherwise any verified email, lower-cased. */
+    private static String verifiedEmail(ClerkUser user) {
+        List<EmailAddress> emails = user.emailAddresses() == null ? List.of() : user.emailAddresses();
+        return emails.stream()
+                .filter(EmailAddress::verified)
+                .filter(e -> Objects.equals(e.id(), user.primaryEmailAddressId()))
+                .map(EmailAddress::emailAddress)
                 .findFirst()
-                .or(() -> phones.stream().filter(PhoneNumber::verified).map(PhoneNumber::phoneNumber).findFirst())
+                .or(() -> emails.stream().filter(EmailAddress::verified).map(EmailAddress::emailAddress).findFirst())
+                .map(e -> e.trim().toLowerCase(Locale.ROOT))
                 .orElse(null);
     }
 

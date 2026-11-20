@@ -26,7 +26,7 @@ function Locked({ label, value, hint }: { label: string; value: string; hint: st
   );
 }
 
-/** Username (unique, changeable), plus the parts of your identity that are locked: phone and college. */
+/** Username (unique, changeable), plus the parts of your identity that are locked: email and college. */
 export function AccountSettings({ user }: { user: User }) {
   const [username, setUsername] = useState(user.username);
   const [changeUsername, { isLoading }] = useChangeUsernameMutation();
@@ -77,9 +77,9 @@ export function AccountSettings({ user }: { user: User }) {
       </form>
 
       <Locked
-        label="Phone number"
-        value={user.phone ?? "Not linked"}
-        hint="One account per phone number. It's verified by OTP and can't be changed."
+        label="Email"
+        value={user.email ?? "Not linked"}
+        hint="One account per email address. It's verified by OTP and can't be changed."
       />
       <Locked label="College" value={user.collegeName} hint="Your college is permanent." />
     </div>

@@ -25,9 +25,13 @@ public class User {
     @Column(name = "clerk_user_id", length = 64)
     private String clerkUserId;
 
-    /** Verified phone number in E.164 form. One account per phone. */
+    /** Legacy: verified phone from when sign-up used phone OTP. No longer set for new accounts. */
     @Column(length = 20)
     private String phone;
+
+    /** Verified email address, lower-cased. One account per email. */
+    @Column(length = 320)
+    private String email;
 
     @Column(name = "username_changed_at")
     private Instant usernameChangedAt;
@@ -62,13 +66,13 @@ public class User {
     protected User() {
     }
 
-    public User(String username, String collegeId, String clerkUserId, String phone) {
+    public User(String username, String collegeId, String clerkUserId, String email) {
         Instant now = Instant.now();
         this.id = UUID.randomUUID();
         this.username = username;
         this.collegeId = collegeId;
         this.clerkUserId = clerkUserId;
-        this.phone = phone;
+        this.email = email;
         this.displayName = username;
         this.createdAt = now;
         this.updatedAt = now;
@@ -80,10 +84,10 @@ public class User {
         this.updatedAt = Instant.now();
     }
 
-    /** Attaches a pre-Clerk account to a Clerk login and its verified phone; the old password stops working. */
-    public void linkClerk(String clerkUserId, String phone) {
+    /** Attaches a pre-Clerk account to a Clerk login and its verified email; the old password stops working. */
+    public void linkClerk(String clerkUserId, String email) {
         this.clerkUserId = clerkUserId;
-        this.phone = phone;
+        this.email = email;
         this.passwordHash = null;
         this.passwordChangedAt = Instant.now();
     }
@@ -109,6 +113,7 @@ public class User {
     public String getPasswordHash() { return passwordHash; }
     public String getClerkUserId() { return clerkUserId; }
     public String getPhone() { return phone; }
+    public String getEmail() { return email; }
     public Instant getUsernameChangedAt() { return usernameChangedAt; }
     public String getCollegeId() { return collegeId; }
     public String getDisplayName() { return displayName; }
