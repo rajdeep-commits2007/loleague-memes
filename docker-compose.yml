@@ -1,0 +1,84 @@
+# Local full stack:  docker compose up --build
+#   web   -> http://localhost:3000
+#   auth  -> http://localhost:8081   meme -> http://localhost:8082   chat -> http://localhost:8083
+name: loleague
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  auth-service:
+    build:
+      context: ./backend
+      dockerfile: auth-service/Dockerfile
+    env_file: .env
+    environment:
+      PORT: 8081
+      MEME_SERVICE_URL: http://meme-service:8082
+      CHAT_SERVICE_URL: http://chat-service:8083
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  meme-service:
+    build:
+      context: ./backend
+      dockerfile: meme-service/Dockerfile
+    env_file: .env
+    environment:
+      PORT: 8082
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  chat-service:
+    build:
+      context: ./backend
+      dockerfile: chat-service/Dockerfile
+    env_file: .env
+    environment:
+      PORT: 8083
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+    env_file: .env
+    environment:
+      PORT: 3000
+      AUTH_SERVICE_URL: http://auth-service:8081
+      MEME_SERVICE_URL: http://meme-service:8082
+      CHAT_SERVICE_URL: http://chat-service:8083
+    ports:
+      - "3000:3000"
+    depends_on:
+      - auth-service
+      - meme-service
+      - chat-service
+
+volumes:
+  pgdata:

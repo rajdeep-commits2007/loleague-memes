@@ -1,0 +1,148 @@
+# Render Blueprint - New > Blueprint > pick this repo.
+# Creates: 1 Postgres + 3 Spring Boot services + the Next.js web app, all in Singapore (closest to India).
+# After the first deploy, fill the "sync: false" values in the Render dashboard (AWS + GIPHY keys).
+#
+# Services talk to each other over Render's private network (fromService hostport), which needs paid
+# instances (starter). On free instances, replace those with the public https://<name>.onrender.com URLs.
+
+envVarGroups:
+  - name: loleague-shared
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: INTERNAL_API_KEY
+        generateValue: true
+      - key: JWT_ISSUER
+        value: loleague
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_SAME_SITE
+        value: Lax
+
+databases:
+  - name: loleague-db
+    databaseName: loleague
+    user: loleague
+    plan: basic-256mb
+    region: singapore
+    postgresMajorVersion: "18"
+
+services:
+  # ------------------------------------------------------------------ auth
+  - type: web
+    name: loleague-auth
+    runtime: docker
+    plan: starter
+    region: singapore
+    dockerContext: ./backend
+    dockerfilePath: ./backend/auth-service/Dockerfile
+    healthCheckPath: /actuator/health
+    envVars:
+      - fromGroup: loleague-shared
+      - key: DB_HOST
+        fromDatabase: { name: loleague-db, property: host }
+      - key: DB_PORT
+        fromDatabase: { name: loleague-db, property: port }
+      - key: DB_NAME
+        fromDatabase: { name: loleague-db, property: database }
+      - key: DB_USER
+        fromDatabase: { name: loleague-db, property: user }
+      - key: DB_PASSWORD
+        fromDatabase: { name: loleague-db, property: password }
+      - key: MEME_SERVICE_URL
+        fromService: { type: web, name: loleague-meme, property: hostport }
+      - key: CHAT_SERVICE_URL
+        fromService: { type: web, name: loleague-chat, property: hostport }
+      - key: AWS_S3_PUBLIC_BASE_URL
+        sync: false
+      - key: ADMIN_USERNAMES
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: CLERK_ISSUER
+        sync: false
+      - key: CLERK_AUTHORIZED_PARTIES
+        value: https://loleague-web.onrender.com
+
+  # ------------------------------------------------------------------ memes, leaderboard, coins, ads
+  - type: web
+    name: loleague-meme
+    runtime: docker
+    plan: starter
+    region: singapore
+    dockerContext: ./backend
+    dockerfilePath: ./backend/meme-service/Dockerfile
+    healthCheckPath: /actuator/health
+    envVars:
+      - fromGroup: loleague-shared
+      - key: DB_HOST
+        fromDatabase: { name: loleague-db, property: host }
+      - key: DB_PORT
+        fromDatabase: { name: loleague-db, property: port }
+      - key: DB_NAME
+        fromDatabase: { name: loleague-db, property: database }
+      - key: DB_USER
+        fromDatabase: { name: loleague-db, property: user }
+      - key: DB_PASSWORD
+        fromDatabase: { name: loleague-db, property: password }
+      - key: AWS_REGION
+        value: ap-south-1
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_S3_BUCKET
+        sync: false
+      - key: AWS_S3_PUBLIC_BASE_URL
+        sync: false
+      - key: LEADERBOARD_REWARDS
+        value: "10,5,3,2,1,1,1,1,1,1"
+
+  # ------------------------------------------------------------------ college chat rooms (WebSocket)
+  - type: web
+    name: loleague-chat
+    runtime: docker
+    plan: starter
+    region: singapore
+    dockerContext: ./backend
+    dockerfilePath: ./backend/chat-service/Dockerfile
+    healthCheckPath: /actuator/health
+    envVars:
+      - fromGroup: loleague-shared
+      - key: DB_HOST
+        fromDatabase: { name: loleague-db, property: host }
+      - key: DB_PORT
+        fromDatabase: { name: loleague-db, property: port }
+      - key: DB_NAME
+        fromDatabase: { name: loleague-db, property: database }
+      - key: DB_USER
+        fromDatabase: { name: loleague-db, property: user }
+      - key: DB_PASSWORD
+        fromDatabase: { name: loleague-db, property: password }
+      - key: GIPHY_API_KEY
+        sync: false
+      # Your web app's public URL (change if the name below was taken / you use a custom domain)
+      - key: FRONTEND_URL
+        value: https://loleague-web.onrender.com
+
+  # ------------------------------------------------------------------ Next.js frontend (BFF proxy)
+  - type: web
+    name: loleague-web
+    runtime: docker
+    plan: starter
+    region: singapore
+    dockerContext: ./frontend
+    dockerfilePath: ./frontend/Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: AUTH_SERVICE_URL
+        fromService: { type: web, name: loleague-auth, property: hostport }
+      - key: MEME_SERVICE_URL
+        fromService: { type: web, name: loleague-meme, property: hostport }
+      - key: CHAT_SERVICE_URL
+        fromService: { type: web, name: loleague-chat, property: hostport }
+      # Needed at build time too (Render passes env vars to Docker builds as build args)
+      - key: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false

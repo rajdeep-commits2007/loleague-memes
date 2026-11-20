@@ -1,0 +1,60 @@
+server:
+  port: ${PORT:8081}
+  forward-headers-strategy: framework
+  shutdown: graceful
+
+spring:
+  application:
+    name: auth-service
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:loleague}?currentSchema=auth
+    username: ${DB_USER:loleague}
+    password: ${DB_PASSWORD:loleague}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:8}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        default_schema: auth
+  flyway:
+    schemas: auth
+    default-schema: auth
+    create-schemas: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    issuer: ${JWT_ISSUER:loleague}
+    access-ttl: ${JWT_ACCESS_TTL:PT15M}
+    refresh-ttl: ${JWT_REFRESH_TTL:P30D}
+  cookies:
+    secure: ${COOKIE_SECURE:false}
+    same-site: ${COOKIE_SAME_SITE:Lax}
+  internal:
+    meme-service-url: ${MEME_SERVICE_URL:http://localhost:8082}
+    chat-service-url: ${CHAT_SERVICE_URL:http://localhost:8083}
+    api-key: ${INTERNAL_API_KEY}
+  clerk:
+    issuer: ${CLERK_ISSUER}
+    secret-key: ${CLERK_SECRET_KEY}
+    authorized-parties: ${CLERK_AUTHORIZED_PARTIES:${FRONTEND_URL:http://localhost:3000}}
+    api-url: ${CLERK_API_URL:https://api.clerk.com/v1}
+  admin-usernames: ${ADMIN_USERNAMES:}
+  username-change-cooldown: ${USERNAME_CHANGE_COOLDOWN:P7D}
+  media-base-url: ${AWS_S3_PUBLIC_BASE_URL:}
