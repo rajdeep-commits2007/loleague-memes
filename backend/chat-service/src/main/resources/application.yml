@@ -1,0 +1,46 @@
+server:
+  port: ${PORT:8083}
+  forward-headers-strategy: framework
+  shutdown: graceful
+
+spring:
+  application:
+    name: chat-service
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:loleague}?currentSchema=chat
+    username: ${DB_USER:loleague}
+    password: ${DB_PASSWORD:loleague}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:6}
+  flyway:
+    schemas: chat
+    default-schema: chat
+    create-schemas: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    issuer: ${JWT_ISSUER:loleague}
+  chat:
+    # Comma separated origins allowed to open the WebSocket (your Next.js URL)
+    allowed-origins: ${FRONTEND_URL:http://localhost:3000}
+    # What the browser should connect to, e.g. wss://loleague-chat.onrender.com/ws
+    public-ws-url: ${CHAT_PUBLIC_WS_URL:}
+    ticket-ttl: PT60S
+    max-message-length: 1000
+  giphy:
+    api-key: ${GIPHY_API_KEY:}
+    rating: pg-13

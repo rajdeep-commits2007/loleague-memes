@@ -1,0 +1,51 @@
+server:
+  port: ${PORT:8082}
+  forward-headers-strategy: framework
+  shutdown: graceful
+
+spring:
+  application:
+    name: meme-service
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:loleague}?currentSchema=meme
+    username: ${DB_USER:loleague}
+    password: ${DB_PASSWORD:loleague}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:12}
+  flyway:
+    schemas: meme
+    default-schema: meme
+    create-schemas: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    issuer: ${JWT_ISSUER:loleague}
+  internal-api-key: ${INTERNAL_API_KEY}
+  aws:
+    region: ${AWS_REGION:ap-south-1}
+    access-key-id: ${AWS_ACCESS_KEY_ID:}
+    secret-access-key: ${AWS_SECRET_ACCESS_KEY:}
+    bucket: ${AWS_S3_BUCKET:loleague-memes}
+    public-base-url: ${AWS_S3_PUBLIC_BASE_URL:}
+    endpoint: ${AWS_S3_ENDPOINT:}
+    max-meme-bytes: 8388608
+    max-avatar-bytes: 2097152
+  leaderboard:
+    # Coins for rank 1..10 every week (per college). Change freely.
+    rewards: ${LEADERBOARD_REWARDS:10,5,3,2,1,1,1,1,1,1}
+    like-points: 1
+    comment-points: 2
