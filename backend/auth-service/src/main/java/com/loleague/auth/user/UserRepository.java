@@ -16,5 +16,6 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByClerkUserId(String clerkUserId);
 
-    Optional<User> findByPhone(String phone);
+    @Query("select u from User u where lower(u.email) = lower(?1)")
+    Optional<User> findByEmailIgnoreCase(String email);
 }

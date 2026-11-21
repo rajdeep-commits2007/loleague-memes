@@ -23,8 +23,8 @@ import java.time.Duration;
 import java.util.List;
 
 /**
- * Sign-in is done by Clerk (phone OTP, Google, GitHub). The browser hands us a short-lived Clerk session token,
- * we verify it, read the verified phone from Clerk, and issue our own HttpOnly cookies so the other services
+ * Sign-in is done by Clerk (email OTP, Google, GitHub). The browser hands us a short-lived Clerk session token,
+ * we verify it, read the verified email from Clerk, and issue our own HttpOnly cookies so the other services
  * keep working exactly as before.
  */
 @RestController
@@ -64,7 +64,7 @@ public class AuthController {
 
     /**
      * Step 1 after every Clerk sign-in. Signs in if this Clerk user already has an account; otherwise says
-     * what is missing (a verified phone, or the college + username onboarding).
+     * what is missing (a verified email, or the college + username onboarding).
      */
     @PostMapping("/clerk/session")
     public SessionResult session(@Valid @RequestBody ClerkSessionRequest req, HttpServletRequest request,
@@ -74,11 +74,11 @@ public class AuthController {
         if (existing.isPresent()) {
             return signIn(existing.get(), request, response);
         }
-        if (identity.phone() == null) {
-            return new SessionResult("PHONE_REQUIRED", null, null, null);
+        if (identity.email() == null) {
+            return new SessionResult("EMAIL_REQUIRED", null, null, null);
         }
-        userService.assertPhoneFree(identity.phone(), identity.clerkUserId());
-        return new SessionResult("ONBOARDING", null, maskPhone(identity.phone()), suggestedName(identity));
+        userService.assertEmailFree(identity.email(), identity.clerkUserId());
+        return new SessionResult("ONBOARDING", null, identity.email(), suggestedName(identity));
     }
 
     /** New student: college (permanent) + unique username. */
@@ -135,15 +135,6 @@ public class AuthController {
         user = userService.syncRole(user);
         cookies.write(response, tokenService.issueForLogin(user, request.getHeader(HttpHeaders.USER_AGENT)));
         return SessionResult.signedIn(userService.toResponse(user));
-    }
-
-    /** +919876543210 -> +91 ••••••3210 */
-    private static String maskPhone(String phone) {
-        if (phone.length() <= 7) {
-            return phone;
-        }
-        String cc = phone.startsWith("+91") ? "+91" : phone.substring(0, Math.min(3, phone.length() - 4));
-        return cc + " ••••••" + phone.substring(phone.length() - 4);
     }
 
     private static String suggestedName(ClerkIdentity identity) {

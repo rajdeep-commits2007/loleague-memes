@@ -11,8 +11,8 @@ export function safeNext(next: string | null) {
 }
 
 /**
- * Clerk's prebuilt card: phone number + OTP, Google or GitHub. Configure the methods (and make the phone
- * number required) in the Clerk dashboard. After Clerk is done we always land on /welcome, which swaps the
+ * Clerk's prebuilt card: email + OTP code, Google or GitHub. Configure the methods (email required, verified
+ * with a code; phone number off) in the Clerk dashboard. After Clerk is done we always land on /welcome, which swaps the
  * Clerk session for LOLeague cookies and runs onboarding if needed.
  */
 export function ClerkAuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
@@ -36,7 +36,7 @@ export function ClerkAuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
         <p className="mt-1 text-sm text-muted-foreground">
           {mode === "sign-in"
             ? "Your campus memes missed you."
-            : "Sign up with your phone, Google or GitHub. We'll verify your number with an OTP."}
+            : "Sign up with your email, Google or GitHub. We'll verify your email with an OTP."}
         </p>
       </div>
       {mode === "sign-in" ? (

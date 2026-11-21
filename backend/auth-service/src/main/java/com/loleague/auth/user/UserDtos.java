@@ -41,10 +41,10 @@ public final class UserDtos {
 
     /**
      * Result of exchanging a Clerk token.
-     * SIGNED_IN: cookies were set. ONBOARDING: no account yet for this Clerk user + phone.
-     * PHONE_REQUIRED: the Clerk user has no verified phone number yet.
+     * SIGNED_IN: cookies were set. ONBOARDING: no account yet for this Clerk user + email.
+     * EMAIL_REQUIRED: the Clerk user has no verified email address yet.
      */
-    public record SessionResult(String status, UserResponse user, String phone, String suggestedName) {
+    public record SessionResult(String status, UserResponse user, String email, String suggestedName) {
         public static SessionResult signedIn(UserResponse user) {
             return new SessionResult("SIGNED_IN", user, null, null);
         }
@@ -59,7 +59,7 @@ public final class UserDtos {
 
     public record UserResponse(UUID id, String username, String collegeId, String collegeName,
                                String displayName, String bio, String avatarUrl, LocalDate birthday,
-                               String role, String phone, Instant usernameChangedAt, Instant createdAt) {
+                               String role, String email, Instant usernameChangedAt, Instant createdAt) {
     }
 
     public record PublicProfile(UUID id, String username, String collegeId, String collegeName,

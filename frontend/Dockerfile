@@ -12,7 +12,9 @@ ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+# The app has no static assets yet and git doesn't track empty folders, so make sure
+# public/ exists for the COPY in the run stage.
+RUN mkdir -p public && npm run build
 
 FROM node:24-alpine AS run
 WORKDIR /app

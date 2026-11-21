@@ -16,17 +16,17 @@ export interface User {
   avatarUrl: string | null;
   birthday: string | null; // yyyy-MM-dd
   role: "USER" | "ADMIN";
-  /** Verified phone (E.164). Locked: one account per phone. */
-  phone: string | null;
+  /** Verified email. Locked: one account per email. Null on accounts created before email sign-up. */
+  email: string | null;
   usernameChangedAt: string | null;
   createdAt: string;
 }
 
 /** Result of swapping a Clerk session for LOLeague cookies. */
 export type SessionResult =
-  | { status: "SIGNED_IN"; user: User; phone: null; suggestedName: null }
-  | { status: "ONBOARDING"; user: null; phone: string; suggestedName: string | null }
-  | { status: "PHONE_REQUIRED"; user: null; phone: null; suggestedName: null };
+  | { status: "SIGNED_IN"; user: User; email: null; suggestedName: null }
+  | { status: "ONBOARDING"; user: null; email: string; suggestedName: string | null }
+  | { status: "EMAIL_REQUIRED"; user: null; email: null; suggestedName: null };
 
 export interface PublicProfile {
   id: string;
